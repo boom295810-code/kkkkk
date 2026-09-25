@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+server/settings.json
+server/uploads/
+server/outputs-5002/
+server/history.json
+.DS_Store
+
+# Old be-recamp-era scripts — contain hardcoded MongoDB credentials from a
+# deleted auth stack. Never commit, never push.
+_legacy/
+
+# Local editor/tooling config, not needed for deployment
+.claude/
+.vscode/

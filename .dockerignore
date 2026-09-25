@@ -1,0 +1,14 @@
+# Never ship secrets or local runtime data into the image.
+**/.env
+server/settings.json
+server/history.json
+server/uploads/
+server/outputs-5002/
+_legacy/
+
+**/node_modules/
+client/dist/
+.git/
+.claude/
+.vscode/
+.vite/

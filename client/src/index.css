@@ -1,0 +1,731 @@
+/* K RECAP — K RECAP မှကြိုဆိုပါသည်
+   Sleek dark theme, charcoal chrome throughout. One deliberate exception:
+   .canvas (the video preview area) is pushed a shade darker/blacker still
+   than the surrounding panels, so the video stage reads as a distinct,
+   recessed "screen" rather than blending into the rest of the dark UI. */
+
+/* Decorative motion (pill slide, ring glow pulse, stage shimmer, checkmark
+   draw-in, log fade-in, result entrance) collapses to its end state instead
+   of animating — every state change still lands correctly, just instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+:root {
+  /* page — sleek dark theme: deep-black/charcoal chrome throughout, with
+     the video canvas (below) pushed a shade darker still for depth
+     hierarchy rather than one single flat tone everywhere. */
+  --page-grad-start: #0c0d13;
+  --page-grad-end: #15171f;
+  --card: #1a1c26;
+  --card-tint: #21232f;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #f0f2fa;
+  --text-2: #9aa3c2;
+  --accent: #6f7ff5;
+  --accent-hover: #8592f7;
+  --accent-soft: rgba(111, 127, 245, 0.16);
+  --accent-soft-strong: rgba(111, 127, 245, 0.26);
+  --good: #34c98a;
+  --good-soft: rgba(52, 201, 138, 0.14);
+  --bad: #f2555a;
+  --bad-soft: rgba(242, 85, 90, 0.14);
+  --radius: 18px;
+  --radius-sm: 10px;
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, .5), 0 2px 10px rgba(0, 0, 0, .35);
+  --shadow-btn: 0 8px 24px rgba(111, 127, 245, .45);
+  --shadow-pill: 0 3px 12px rgba(0, 0, 0, .5);
+
+  /* interactive-control redesign tokens — buttons/switches/segmented
+     controls/sliders/dropzone/selects only. Deliberately separate from the
+     --radius/--radius-sm/--shadow-card tokens above, which still shape
+     cards, sheets, and other non-interactive surfaces untouched by this. */
+  --ctrl-radius: 14px;
+  --ctrl-pill: 999px;
+  --ease-spring: cubic-bezier(.34, 1.56, .64, 1);
+  --accent-grad: linear-gradient(135deg, var(--accent), #8b6ef0);
+  --shadow-raised: 0 1px 0 rgba(255, 255, 255, .05) inset, 0 6px 16px rgba(0, 0, 0, .35);
+  --shadow-raised-hover: 0 1px 0 rgba(255, 255, 255, .06) inset, 0 10px 26px rgba(0, 0, 0, .45);
+  --shadow-inset-track: inset 0 1px 4px rgba(0, 0, 0, .5), inset 0 -1px 0 rgba(255, 255, 255, .03);
+
+  /* video canvas — deliberately a shade darker/more black than the --card
+     chrome above it now that the whole app is dark, so the video stage
+     still reads as a distinct, recessed "screen" rather than blending
+     into the surrounding panels. */
+  --canvas-bg: #08090d;
+  --canvas-bg-2: #101219;
+  --canvas-line: rgba(255, 255, 255, 0.08);
+  --canvas-text: #e8ecf7;
+  --canvas-muted: #8e99b5;
+  --chrome-bg: rgba(8, 9, 13, 0.86);
+  --chrome-blur: saturate(180%) blur(20px);
+
+  /* video stage height — desktop default; smaller on mobile (see media
+     query) so canvas + bottom tab bar both fit without starving the
+     scrollable controls area. Preview.jsx reads this same token for its
+     caption/watermark proportional font-size calc, so there is one source
+     of truth for "how tall is the preview" regardless of breakpoint. */
+  --stage-h: 58vh;
+
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Padauk', 'Noto Sans Myanmar', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--page-grad-start);
+  color: var(--text);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+/* ── shell ─────────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex; flex-direction: column; height: 100%;
+  background: linear-gradient(180deg, var(--page-grad-start), var(--page-grad-end));
+}
+
+.topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #8b6ef0);
+  display: grid; place-items: center; font-weight: 800; font-size: 14px; color: #fff;
+}
+.brand-name { font-weight: 700; font-size: 15px; letter-spacing: .2px; color: var(--text); }
+.brand-sub { font-size: 11px; color: var(--text-2); margin-top: -2px; }
+.topbar-spacer { flex: 1; }
+
+/* Desktop: canvas + panel side by side, history spans full width below —
+   explicit areas so History (a sibling of Preview/Panel inside .layout) can
+   sit under both columns without disturbing the two-column arrangement. */
+.layout {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas: "canvas panel" "history history";
+}
+.canvas { grid-area: canvas; }
+.panel { grid-area: panel; }
+.history-panel { grid-area: history; }
+
+/* ── canvas (dark exception) ──────────────────────────────────────────── */
+
+.canvas {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 22px; min-height: 0; overflow: auto;
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(91,110,232,.16), transparent 60%),
+    var(--canvas-bg);
+}
+
+/* mobile-only corner toolbar (Change video / Settings) — shown once a
+   video is loaded, in place of the collapsed header (see .topbar.has-source
+   below). Hidden entirely on desktop, where the header stays put. */
+.canvas-toolbar { display: none; }
+.canvas-label { font-size: 11px; letter-spacing: 1.4px; color: var(--canvas-muted); text-transform: uppercase; }
+
+.stage {
+  position: relative; background: #000; border-radius: var(--radius);
+  overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.55);
+  height: var(--stage-h); max-height: 62vh;
+  touch-action: none; /* tap-to-play is handled entirely by our own pointer
+    logic (see Preview.jsx onStagePointer*) — this stops the browser from
+    also trying to scroll/zoom on the same gesture. */
+}
+.stage video { display: block; width: 100%; height: 100%; }
+.stage.cover video { object-fit: cover; }
+.stage.contain video { object-fit: contain; }
+
+.dropzone {
+  width: min(560px, 90%); aspect-ratio: 16/10;
+  border: 2px dashed var(--canvas-line); border-radius: var(--radius);
+  display: grid; place-items: center; text-align: center; gap: 6px;
+  background: var(--canvas-bg-2); color: var(--canvas-muted); padding: 24px;
+  background-image: none;
+  transition: border-color .2s, background-color .2s, box-shadow .25s var(--ease-spring), transform .2s var(--ease-spring);
+}
+.dropzone:hover {
+  border-color: var(--accent); background-color: rgba(91,110,232,.12); color: var(--canvas-text);
+  box-shadow: 0 0 0 6px rgba(91,110,232,.08);
+}
+/* Active drag-over gets its own state, distinct from a plain hover — a
+   moving dash pattern reads as "drop it here, it's listening" rather than
+   a static hover tint. */
+.dropzone.over {
+  border-style: solid; border-color: var(--accent); color: var(--canvas-text);
+  background-color: rgba(91,110,232,.16);
+  box-shadow: 0 0 0 6px rgba(91,110,232,.14);
+  transform: scale(1.015);
+  background-image: repeating-linear-gradient(90deg, var(--accent) 0 10px, transparent 10px 20px);
+  background-size: 28px 2px; background-repeat: repeat-x; background-position: 0 0, 0 100%;
+  animation: dashMarch 1s linear infinite;
+}
+@keyframes dashMarch { to { background-position: 28px 0, -28px 100%; } }
+.dropzone h3 { margin: 0; color: var(--canvas-text); font-size: 16px; }
+.dropzone p { margin: 0; font-size: 12.5px; }
+
+.url-row input[type=text] {
+  background: var(--canvas-bg-2); color: var(--canvas-text); border: 1px solid var(--canvas-line);
+}
+.url-row input[type=text]::placeholder { color: var(--canvas-muted); }
+.url-row .btn {
+  background: var(--canvas-bg-2); color: var(--canvas-text); border-color: var(--canvas-line);
+  flex-shrink: 0;
+}
+.url-row .btn:hover:not(:disabled) { border-color: var(--accent); }
+.url-row .btn:disabled { opacity: .4; cursor: not-allowed; }
+/* Only ever mounted while a pasted link is recognized as TikTok/Douyin (see
+   Preview.jsx's tiktokReady) — the animation is what makes that mount read
+   as "instantly appears" rather than a plain pop-in. */
+.url-fetch-btn {
+  background: var(--accent-grad); color: #fff; border-color: transparent;
+  animation: fetchBtnIn .3s var(--ease-spring) both;
+}
+.url-fetch-btn:hover:not(:disabled) { border-color: transparent; filter: brightness(1.08); }
+@keyframes fetchBtnIn {
+  from { opacity: 0; transform: scale(.7) translateX(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.blurbox {
+  position: absolute; cursor: move; touch-action: none;
+}
+/* The visual blur surface is a SEPARATE element from .blurbox itself so the
+   feather mask-image (applied only here) never fades the tag/kill/handle
+   controls, which are positioned outside the box via negative offsets. */
+.blurbox-surface {
+  position: absolute; inset: 0; border: 1.5px solid rgba(255,255,255,.9);
+  border-radius: 6px; background: rgba(255,255,255,.08);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+  pointer-events: none;
+}
+.blurbox.band .blurbox-surface, .blurbox.caption .blurbox-surface {
+  border-style: dashed; border-color: var(--accent); background: rgba(91,110,232,.16);
+}
+.blurbox .handle {
+  position: absolute; right: -6px; bottom: -6px; width: 18px; height: 18px;
+  background: var(--accent); border: 2px solid #fff; border-radius: 5px; cursor: nwse-resize;
+}
+.blurbox .tag {
+  position: absolute; top: -22px; left: 0; font-size: 10px; color: #fff;
+  background: rgba(0,0,0,.65); padding: 3px 7px; border-radius: 5px;
+}
+.blurbox .tag.kind-toggle {
+  border: none; cursor: pointer; font-family: inherit;
+}
+.blurbox.caption .tag.kind-toggle { background: var(--accent); }
+.blurbox .kill {
+  position: absolute; top: -10px; right: -10px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--bad); color: #fff; border: 2px solid var(--canvas-bg); font-size: 11px; line-height: 1; display: grid; place-items: center;
+}
+
+.captionghost {
+  position: absolute; left: 6%; right: 6%; text-align: center; pointer-events: none;
+  font-weight: 700; line-height: 1.35; white-space: pre-wrap;
+}
+
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: min(680px, 100%); }
+.scrub-wrap { position: relative; flex: 1 1 200px; min-width: 140px; }
+.transport input.scrub { display: block; width: 100%; accent-color: var(--accent); }
+.transport .time { font-variant-numeric: tabular-nums; color: var(--canvas-muted); font-size: 12px; }
+.transport .btn { background: var(--canvas-bg-2); color: var(--canvas-text); border-color: var(--canvas-line); }
+.transport .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+.transport-jump { width: 30px; padding: 0; flex-shrink: 0; display: grid; place-items: center; }
+
+/* + Blur box / Cover subtitle — text buttons on desktop (unchanged), icon-
+   only on mobile so row 2 fits on one line at 390px (see mobile block). */
+.tool-icon { display: none; }
+.transport-tool.primary { width: auto; padding: 6px 10px; font-size: 12px; box-shadow: none; }
+
+.scrub-bubble {
+  position: absolute; bottom: 100%; left: 0; margin-bottom: 7px; transform: translateX(-50%);
+  background: var(--canvas-bg-2); color: var(--canvas-text); border: 1px solid var(--canvas-line);
+  padding: 3px 8px; border-radius: 7px; font-size: 11px; font-variant-numeric: tabular-nums;
+  white-space: nowrap; pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,.35);
+}
+.scrub-bubble::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 4px solid transparent; border-top-color: var(--canvas-bg-2);
+}
+
+/* ── panel ─────────────────────────────────────────────────────────────── */
+
+.panel { border-left: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; min-height: 0; }
+
+/* Pill segmented control — same component at two sizes: a light pill track
+   on the desktop top strip, a dark frosted one for the mobile bottom bar.
+   Both position a single sliding ".../-pill" element via measured
+   left/width (see usePillRect in Panel.jsx) so the highlight glides between
+   tabs instead of hard-swapping. */
+.tabs {
+  position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;
+  margin: 16px 20px 0; padding: 4px;
+  background: var(--card-tint); border: 1px solid var(--border); border-radius: 14px;
+  flex-shrink: 0;
+}
+.tab-pill {
+  position: absolute; top: 4px; bottom: 4px; left: 0;
+  background: var(--accent-grad); border-radius: 11px; box-shadow: var(--shadow-pill);
+  transition: transform .28s cubic-bezier(.34, 1.25, .4, 1), width .28s cubic-bezier(.34, 1.25, .4, 1);
+}
+.tab {
+  position: relative; z-index: 1; background: none; border: none; color: var(--text-2);
+  padding: 10px 4px; font-size: 12.5px; font-weight: 600; border-radius: 11px;
+  transition: color .2s;
+}
+.tab.active { color: #fff; }
+
+/* mobile-only bottom tab bar — same tabs, iOS-style icon-over-label
+   segments, hidden entirely on desktop (the top .tabs nav is used there). */
+.tabbar { position: relative; display: none; touch-action: manipulation; }
+.tabbar-pill {
+  position: absolute; top: 5px; bottom: calc(5px + env(safe-area-inset-bottom)); left: 0;
+  background: var(--accent-grad); border-radius: 13px; box-shadow: var(--shadow-pill);
+  transition: transform .28s cubic-bezier(.34, 1.25, .4, 1), width .28s cubic-bezier(.34, 1.25, .4, 1);
+}
+.tabbar-item {
+  position: relative; z-index: 1;
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: none; border: none; color: var(--canvas-muted); padding: 7px 2px 6px;
+  font-size: 10.5px; font-weight: 600; transition: color .2s;
+}
+.tabbar-item svg { opacity: .82; transition: opacity .2s; }
+.tabbar-item.active { color: #fff; }
+.tabbar-item.active svg { opacity: 1; }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.panel-foot { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--card); }
+
+.group { display: flex; flex-direction: column; gap: 10px; }
+.group > h4 {
+  margin: 0; font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-2);
+}
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.row > label { font-size: 13px; color: var(--text); }
+.hint { font-size: 11.5px; color: var(--text-2); line-height: 1.5; margin: 0; }
+
+input[type=text], input[type=number], input[type=password], select, textarea {
+  background: var(--card); color: var(--text); border: 1.5px solid var(--border);
+  border-radius: var(--ctrl-radius); padding: 10px 14px; font-size: 13px; width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+/* Custom chevron replaces the browser default — same rounded, bordered
+   language as text inputs rather than each OS's native dropdown chrome. */
+select {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%237b85a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 7.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+  padding-right: 34px; cursor: pointer;
+}
+input[type=range] {
+  accent-color: var(--accent); width: 100%;
+  height: 28px; /* generous hit area for touch, track stays visually thin */
+  touch-action: pan-y; /* vertical drags belong to the scrolling panel, not
+    the slider — only a horizontal drag changes the value. */
+}
+/* One custom thumb/track look shared by every slider (not just the mobile
+   transport scrubber, which layers its own tweaks on top in the mobile
+   media query below) — a filled pill track and a bordered gradient thumb
+   that lifts on press, instead of each browser's native slider chrome. */
+input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; }
+input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: var(--ctrl-pill); background: var(--border);
+}
+input[type=range]::-moz-range-track {
+  height: 6px; border-radius: var(--ctrl-pill); background: var(--border);
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%; margin-top: -6px;
+  background: var(--accent-grad); border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.5); cursor: pointer;
+  transition: transform .15s var(--ease-spring), box-shadow .15s;
+}
+input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff;
+  background: var(--accent-grad); box-shadow: 0 1px 4px rgba(0,0,0,.5); cursor: pointer;
+  transition: transform .15s var(--ease-spring), box-shadow .15s;
+}
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.15); }
+input[type=range]:active::-webkit-slider-thumb { transform: scale(1.25); box-shadow: 0 2px 8px rgba(91,110,232,.5); }
+input[type=range]:hover::-moz-range-thumb { transform: scale(1.15); }
+input[type=range]:active::-moz-range-thumb { transform: scale(1.25); box-shadow: 0 2px 8px rgba(91,110,232,.5); }
+input[type=color] {
+  width: 42px; height: 34px; padding: 0; border: 1.5px solid var(--border);
+  border-radius: var(--ctrl-radius); background: var(--card); cursor: pointer;
+}
+
+/* − / + step buttons flanking every slider — quiet by default, useful with
+   a mouse too, and the only way to set an exact value by tap on mobile
+   rather than dragging. */
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.slider-row input[type=range] { flex: 1; }
+.stepbtn {
+  flex-shrink: 0; width: 28px; height: 28px; padding: 0;
+  border: 1.5px solid var(--border); background: var(--card); color: var(--text-2);
+  border-radius: 50%; font-size: 15px; font-weight: 700; line-height: 1;
+  box-shadow: var(--shadow-raised);
+  display: grid; place-items: center; touch-action: manipulation; user-select: none;
+  transition: transform .15s var(--ease-spring), border-color .15s, color .15s, background .15s, box-shadow .15s;
+}
+.stepbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow-raised-hover); }
+.stepbtn:active:not(:disabled) { background: var(--accent-soft); transform: scale(.9); }
+.stepbtn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+
+.seg {
+  display: flex; background: var(--card-tint); border: 1px solid var(--border);
+  border-radius: var(--ctrl-pill); padding: 4px; gap: 3px; flex-wrap: wrap;
+  box-shadow: var(--shadow-inset-track);
+}
+.seg button {
+  flex: 1; background: none; border: none; color: var(--text-2); padding: 9px 8px; min-width: 44px;
+  border-radius: var(--ctrl-pill); font-size: 12.5px; font-weight: 600;
+  transition: background .2s var(--ease-spring), color .15s, box-shadow .2s, transform .15s var(--ease-spring);
+}
+.seg button:active { transform: scale(.94); }
+.seg button.on { background: var(--accent-grad); color: #fff; box-shadow: var(--shadow-raised); }
+
+.modecard {
+  display: flex; flex-direction: column; gap: 4px; text-align: left; padding: 13px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--ctrl-radius); background: var(--card); color: var(--text-2);
+  box-shadow: var(--shadow-raised);
+  transition: border-color .2s, box-shadow .2s var(--ease-spring), transform .15s var(--ease-spring), background .2s;
+}
+.modecard:hover { transform: translateY(-1px); box-shadow: var(--shadow-raised-hover); }
+.modecard:active { transform: translateY(0) scale(.985); }
+.modecard.on {
+  border-color: transparent; background: var(--accent-soft); color: var(--text);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-raised-hover);
+}
+.modecard b { font-size: 13.5px; color: var(--text); }
+.modecard span { font-size: 11.5px; line-height: 1.5; }
+
+.switch { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; padding: 4px 0; }
+.switch input { display: none; }
+.switch .track {
+  width: 42px; height: 24px; border-radius: var(--ctrl-pill); background: var(--border);
+  border: 1px solid var(--border); position: relative; flex-shrink: 0;
+  box-shadow: var(--shadow-inset-track);
+  transition: background .25s var(--ease-spring), border-color .25s;
+}
+.switch .track::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: linear-gradient(180deg, #fff, #f0f2fb);
+  box-shadow: 0 1px 3px rgba(0,0,0,.5), 0 1px 1px rgba(0,0,0,.3);
+  transition: transform .3s var(--ease-spring);
+}
+.switch:active .track::after { width: 21px; } /* a squash-on-press touch, settles back on release */
+.switch input:checked + .track { background: var(--accent-grad); border-color: transparent; box-shadow: none; }
+.switch input:checked + .track::after { transform: translateX(18px); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px solid var(--border); background: var(--card); color: var(--text);
+  padding: 10px 17px; border-radius: var(--ctrl-pill); font-size: 13px; font-weight: 600;
+  min-height: 40px; box-shadow: var(--shadow-raised);
+  transition: transform .15s var(--ease-spring), box-shadow .18s var(--ease-spring),
+    border-color .15s, color .15s, background .15s;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); box-shadow: var(--shadow-raised-hover); transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(.96); box-shadow: var(--shadow-raised); }
+.btn.primary {
+  background: var(--accent-grad);
+  border-color: transparent; color: #fff; width: 100%; padding: 15px; font-size: 15px;
+  box-shadow: var(--shadow-btn); min-height: 52px;
+}
+.btn.primary:hover { filter: brightness(1.06); color: #fff; box-shadow: 0 10px 26px rgba(91, 110, 232, .4); transform: translateY(-1px); }
+.btn.primary:active { transform: translateY(0) scale(.97); filter: brightness(.98); }
+.btn.primary:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; transform: none; filter: none; }
+.btn.ghost { background: none; box-shadow: none; }
+.btn.ghost:hover { box-shadow: none; }
+.btn.small { padding: 8px 14px; font-size: 12px; min-height: 36px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.value { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; font-size: 12.5px; }
+
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; color: var(--text-2); }
+.meta b { color: var(--text); font-weight: 600; }
+
+.banner {
+  padding: 11px 13px; border-radius: var(--radius-sm); font-size: 12.5px; line-height: 1.5;
+  border: 1px solid var(--border); background: var(--card-tint);
+}
+.banner.bad { border-color: rgba(242,85,90,.35); background: var(--bad-soft); color: #ff9a9e; }
+.banner.good { border-color: rgba(52,201,138,.35); background: var(--good-soft); color: #7be8bd; }
+
+/* ── mobile: three fixed zones ─────────────────────────────────────────
+   canvas pinned top (sticky — self-sizing, no manual height/offset math),
+   tab content + history scroll in the middle (one shared scroller: .layout
+   itself), tab bar pinned to the true bottom edge (fixed, safe-area aware).
+   The canvas is "pinned" via position:sticky rather than position:fixed —
+   sticky reserves its own space in normal flow AND stops it scrolling away
+   once its top edge would leave the viewport, so it never needs a manual
+   height offset baked in elsewhere (the video's own aspect ratio varies). */
+@media (max-width: 900px) {
+  :root { --stage-h: 26vh; }
+
+  .app { height: 100dvh; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  .topbar { flex: 0 0 auto; }
+  /* Once a video is loaded, the header is dead weight — Change video /
+     Settings move into .canvas-toolbar instead, reclaiming its full height
+     for the canvas/panel split below. Only before a source is picked does
+     the header stay visible (there's nothing else on screen to reach it
+     from yet). */
+  .topbar.has-source { display: none; }
+
+  .canvas-toolbar {
+    display: flex; gap: 6px; position: absolute; top: 10px; right: 10px; z-index: 6;
+  }
+  .canvas-toolbar button {
+    width: 34px; height: 34px; padding: 0; border-radius: 10px; display: grid; place-items: center;
+    background: var(--chrome-bg); -webkit-backdrop-filter: var(--chrome-blur); backdrop-filter: var(--chrome-blur);
+    border: 1px solid var(--canvas-line); color: var(--canvas-text);
+  }
+
+  .layout {
+    display: block;
+    grid-template-columns: none; grid-template-rows: none; grid-template-areas: none;
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  .canvas {
+    position: sticky; top: 0; z-index: 5;
+    padding: 10px 12px 8px; gap: 10px;
+  }
+  .stage { max-height: 34vh; }
+
+  .panel { border-left: none; border-top: 1px solid var(--border); }
+  .tabs { display: none; }
+  .panel-body { overflow-y: visible; padding: 16px; }
+
+  .history-panel { max-height: none; overflow-y: visible; }
+
+  /* fixed bottom tab bar — frosted, same dark family as the canvas, so the
+     two read as one coordinated surface bookending the light content. */
+  .tabbar {
+    display: flex;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--chrome-bg);
+    -webkit-backdrop-filter: var(--chrome-blur); backdrop-filter: var(--chrome-blur);
+    border-top: 1px solid var(--canvas-line);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+
+  .btn { min-height: 44px; padding: 11px 16px; }
+  .btn.small { min-height: 40px; padding: 9px 14px; font-size: 12.5px; }
+  .btn.primary { min-height: 56px; font-size: 16px; }
+  .seg button { padding: 12px 8px; min-height: 40px; }
+  .switch .track { width: 46px; height: 26px; }
+  .switch .track::after { width: 20px; height: 20px; }
+  .switch input:checked + .track::after { transform: translateX(20px); }
+  input[type=range] { height: 36px; }
+  .stepbtn { width: 44px; height: 44px; border-radius: 50%; font-size: 20px; }
+  .blurbox .handle { width: 24px; height: 24px; }
+  .blurbox .kill { width: 26px; height: 26px; font-size: 13px; }
+
+  /* video scrubber — its own full-width row (row 1), everything else wraps
+     to row 2 beneath it (play, jump-to-start/end, time, blur/cover tools).
+     scrub-wrap is DOM-ordered after transport-play/jump-start normally;
+     order:-10 pulls it to the very front of the flex line so it's the only
+     thing on line 1, and flex-basis:100% makes it claim the whole line —
+     everything after it (unchanged order) naturally wraps to line 2.
+     Desktop transport is untouched (this whole block is mobile-only). */
+  .transport { gap: 12px; width: 100%; }
+  .scrub-wrap { order: -10; flex-basis: 100%; }
+  .transport-play {
+    width: 46px; height: 46px; min-width: 46px; min-height: 46px; padding: 0;
+    border-radius: 50%; font-size: 17px; display: grid; place-items: center; flex-shrink: 0;
+  }
+  .transport-jump { width: 40px; height: 40px; }
+  .transport .time { font-size: 14px; min-width: 38px; }
+
+  /* row 2 must fit on one line at 390px — + Blur box / Cover subtitle
+     become icon-only squares here (text stays for desktop, see base
+     rules); .primary's override also needs restating at this specificity
+     so an active Cover-subtitle button doesn't grow back to text width. */
+  .transport-tool { width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: grid; place-items: center; }
+  .transport-tool.primary { width: 40px; height: 40px; padding: 0; }
+  .tool-icon { display: block; }
+  .tool-label { display: none; }
+  .transport input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    height: 28px; background: transparent;
+  }
+  .transport input[type=range]::-webkit-slider-runnable-track {
+    height: 5px; border-radius: 3px; background: inherit;
+  }
+  .transport input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; border: 3px solid var(--accent);
+    box-shadow: 0 1px 5px rgba(0,0,0,.45);
+    margin-top: -8.5px;
+  }
+  .transport input[type=range]::-moz-range-track {
+    height: 5px; border-radius: 3px; background: inherit;
+  }
+  .transport input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--accent);
+    background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,.45);
+  }
+  .scrub-bubble { font-size: 12px; padding: 4px 9px; }
+}
+
+/* ── overlay / processing ──────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed; inset: 0; background: rgba(15,18,35,.5);
+  backdrop-filter: blur(6px); display: grid; place-items: center; z-index: 50; padding: 24px;
+}
+.sheet {
+  position: relative;
+  width: min(560px, 100%); max-height: 86vh; overflow: auto; background: var(--card);
+  border: 1px solid var(--border); border-radius: 20px; padding: 24px;
+  box-shadow: var(--shadow-card);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.sheet h3 { margin: 0; font-size: 17px; color: var(--text); }
+
+.sound-toggle {
+  position: absolute; top: 16px; right: 16px; z-index: 2;
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--card-tint); border: 1px solid var(--border); color: var(--text-2);
+  padding: 0; transition: color .2s, border-color .2s, background .2s;
+}
+.sound-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.sound-toggle.on { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+
+/* ── progress ring — thin gradient stroke, smooth count-up (JS), a slow
+   breathing glow while alive so it reads at a glance as "still working" ── */
+.ring { position: relative; display: grid; place-items: center; }
+.ring svg { transform: rotate(-90deg); }
+.ring-track { stroke: var(--border); stroke-width: 4; }
+.ring-progress {
+  stroke: url(#ringGrad); stroke-width: 4; stroke-linecap: round;
+}
+.ring-alive .ring-progress { animation: ringGlow 3.2s ease-in-out infinite; }
+@keyframes ringGlow {
+  0%, 100% { filter: drop-shadow(0 0 1px rgba(91,110,232,.25)); }
+  50% { filter: drop-shadow(0 0 9px rgba(91,110,232,.55)); }
+}
+.ring-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 1px;
+}
+/* Sized (and measured in the browser, not guessed) to stay fully inside the
+   track's inner edge — r=56 minus the 4px stroke leaves a 104px safe
+   diameter shared between the logo AND the percent/stage-name text below
+   it, since the box IS the circle here, not a rectangle with slack. */
+.ring-logo { width: 72px; height: auto; object-fit: contain; }
+.ring .pct { font-size: 25px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.ring .stage-name { font-size: 11px; color: var(--text-2); }
+
+/* ── stage list — active row breathes with a soft shimmer sweep; a
+   completed row's checkmark draws itself in once, then the row settles
+   from accent back to muted via a plain CSS transition ── */
+.stagelist { display: flex; flex-direction: column; gap: 4px; }
+.stagerow {
+  position: relative; overflow: hidden; display: flex; align-items: center; gap: 9px;
+  font-size: 12.5px; color: var(--text-2); padding: 6px 8px; border-radius: 9px;
+  transition: color .4s ease, background .4s ease, font-weight .4s ease;
+}
+.stagerow .dot {
+  width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--border);
+  display: grid; place-items: center; font-size: 9px; flex-shrink: 0;
+  transition: background .3s ease, border-color .3s ease;
+}
+.stagerow.done { color: var(--text-2); }
+.stagerow.done .dot { background: var(--good); border-color: var(--good); }
+.dot-check { stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dashoffset: 21; animation: drawIn .3s ease forwards; }
+.stagerow.now { color: var(--accent); font-weight: 700; background: var(--accent-soft); }
+.stagerow.now .dot { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.stagerow.now::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: shimmer 2.4s ease-in-out infinite;
+}
+@keyframes shimmer { 0% { background-position: 140% 0; } 100% { background-position: -140% 0; } }
+@keyframes drawIn { to { stroke-dashoffset: 0; } }
+
+/* ── completion badge — the same "drawn checkmark" motif, larger ── */
+.check-badge { margin: 4px auto 0; width: 64px; height: 64px; }
+.check-badge-circle {
+  stroke: var(--accent); stroke-width: 2.5; stroke-dashoffset: 170;
+  animation: circleDraw .5s ease forwards;
+}
+.check-badge-check {
+  stroke: var(--accent); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dashoffset: 38; animation: checkDraw .35s ease forwards .42s;
+}
+@keyframes circleDraw { to { stroke-dashoffset: 0; } }
+@keyframes checkDraw { to { stroke-dashoffset: 0; } }
+
+.sheet-result { animation: resultIn .5s cubic-bezier(.22, .9, .3, 1.05) both; }
+@keyframes resultIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.logbox {
+  background: var(--canvas-bg); border: 1px solid var(--canvas-line); border-radius: 14px;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+  padding: 12px 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; line-height: 1.7; color: #9fb0d6; max-height: 150px; overflow: auto; white-space: pre-wrap;
+}
+.log-line { opacity: 0; animation: logIn .35s ease forwards; }
+@keyframes logIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+.result-video { width: 100%; border-radius: var(--radius); background: #000; max-height: 44vh; }
+
+.history { display: flex; gap: 8px; flex-wrap: wrap; }
+.history a {
+  font-size: 11.5px; color: var(--text-2); text-decoration: none; border: 1px solid var(--border);
+  padding: 6px 10px; border-radius: 999px;
+}
+.history a:hover { border-color: var(--accent); color: var(--accent); }
+
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; font-size: 11.5px; color: var(--text-2); }
+.checks b { color: var(--text); }
+
+.reviewlist { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; }
+.reviewitem { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; background: var(--card-tint); }
+.reviewitem .src { font-size: 11px; color: var(--text-2); margin-bottom: 6px; }
+.reviewitem textarea { min-height: 52px; resize: vertical; }
+
+/* ── recent-renders history panel ─────────────────────────────────────── */
+
+.history-panel {
+  border-top: 1px solid var(--border); background: var(--card);
+  padding: 14px 22px; display: flex; flex-direction: column; gap: 10px;
+  max-height: 32vh; overflow-y: auto;
+}
+.history-panel-label { font-size: 11px; letter-spacing: 1.2px; color: var(--text-2); text-transform: uppercase; }
+.history-panel-item { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-tint); padding: 10px 12px; }
+.history-panel-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.history-panel-info { flex: 1; min-width: 140px; }
+.history-panel-name { font-size: 12.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-panel-meta { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.history-panel-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.history-panel-video { width: 100%; border-radius: var(--radius-sm); background: #000; max-height: 30vh; margin-top: 8px; }

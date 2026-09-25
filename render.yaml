@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: recap-studio-backend
+    runtime: node
+    plan: starter
+    # region: choose the one closest to your users when you create this from
+    # the Blueprint in Render's dashboard (defaults to Oregon if unset)
+    rootDir: server
+    buildCommand: npm install && npm rebuild
+    startCommand: node index.js
+    healthCheckPath: /api/health
+    disk:
+      name: recap-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: UPLOAD_DIR
+        value: /data/uploads
+      - key: OUTPUT_DIR
+        value: /data/outputs
+      - key: HISTORY_FILE
+        value: /data/history.json
+      - key: ASSEMBLYAIKEY
+        sync: false
+      - key: GEMINIKEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
